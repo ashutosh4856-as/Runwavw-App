@@ -1,42 +1,68 @@
 name: Build Android APK
-on: [push]
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout Source Code
-        uses: actions/checkout@v4 # v4 पर अपडेट किया
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4 # v4 पर अपडेट किया
+        uses: actions/setup-node@v4
         with:
-          node-version: '20' # लेटेस्ट स्टेबल वर्जन
+          node-version: '20'
 
-      - name: Prepare Web Directory
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Create package.json
         run: |
-          mkdir -p www
-          cp -r * www/ || true
+          cat > package.json << 'EOF'
+          {
+            "name": "runwave",
+            "version": "1.0.0",
+            "private": true,
+            "dependencies": {
+              "@capacitor/android": "^5.7.0",
+              "@capacitor/core": "^5.7.0"
+            }
+          }
+          EOF
 
       - name: Install Capacitor
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install
+          npm install -g @capacitor/cli
 
       - name: Initialize Capacitor
-        run: |
-          npx cap init "Runwavv App" com.runwavv.app --web-dir www
-          npx cap add android
+        run: npx cap init RunWave com.runwave.tracker --web-dir=.
 
-      - name: Sync and Build
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Copy web files
+        run: npx cap copy
+
+      - name: Sync Android
+        run: npx cap sync android
+
+      - name: Build APK
         run: |
-          npx cap sync android
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
       - name: Upload APK
-        uses: actions/upload-artifact@v4 # यहाँ v3 की जगह v4 कर दिया है
+        uses: actions/upload-artifact@v4
         with:
-          name: Runwavv-Debug-APK
+          name: RunWave-App
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          
