@@ -27,6 +27,12 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Prepare Web Directory
+        # यहाँ हम 'dist' नाम का फोल्डर बनाकर आपकी फाइल्स उसमें डाल रहे हैं
+        run: |
+          mkdir -p dist
+          cp -r * dist/ || true
+
       - name: Create package.json
         run: |
           cat > package.json << 'EOF'
@@ -47,17 +53,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install Capacitor globally
-        run: npm install -g @capacitor/cli
-
       - name: Initialize Capacitor
-        run: npx cap init RunWave com.runwave.tracker --web-dir=.
+        # यहाँ हमने web-dir को '.' से बदलकर 'dist' कर दिया है
+        run: npx cap init RunWave com.runwave.tracker --web-dir=dist
 
       - name: Add Android platform
         run: npx cap add android
-
-      - name: Copy web files to Android
-        run: npx cap copy
 
       - name: Sync Android project
         run: npx cap sync android
@@ -73,5 +74,4 @@ jobs:
         with:
           name: RunWave-App
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 30
+          
