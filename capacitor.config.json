@@ -1,8 +1,5 @@
 {
   "appId": "com.runwave.tracker",
   "appName": "RunWave",
-  "webDir": ".",
-  "android": {
-    "allowMixedContent": true
-  }
+  "webDir": "."
 }
