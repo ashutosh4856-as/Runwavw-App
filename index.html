@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>RunWave - अग्निवीर रनिंग ट्रैकर</title>
+<meta name="description" content="अग्निवीर, नेवी, आर्मी के लिए GPS रनिंग ट्रैकर">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="top-bar">
+  <button class="btn-toggle" id="themeBtn" onclick="toggleTheme()">🌙/☀️</button>
+  <button class="btn-toggle" id="langBtn" onclick="toggleLang()">हिं/Eng</button>
+</div>
+
+<div class="container">
+  <!-- Welcome Screen -->
+  <div id="welcomeScreen" class="welcome">
+    <div class="logo">🏃 RunWave</div>
+    <div class="hashtags">
+      <span class="hashtag">#अग्निवीर</span>
+      <span class="hashtag">#Agniveer</span>
+      <span class="hashtag">#IndianNavy</span>
+      <span class="hashtag">#IndianArmy</span>
+    </div>
+    <h1 id="welcomeTitle">स्वागत है!</h1>
+    <p id="welcomeSub">अग्निवीर फिटनेस के लिए दौड़ ट्रैक करें</p>
+    <button class="start-main-btn" id="startTrackingBtn">▶ दौड़ शुरू करें</button>
+  </div>
+
+  <!-- Tracker Screen -->
+  <div id="trackerScreen" class="tracker">
+    <div class="gps-status">
+      <div class="gps-dot" id="gpsDot"></div>
+      <span id="gpsText">GPS तैयार</span>
+    </div>
+    <div class="timer-card">
+      <div class="timer-label" id="timerLabel">समय</div>
+      <div class="timer-value" id="timerValue">00:00</div>
+    </div>
+    <div class="distance-card">
+      <div class="dist-icon">🏃‍♂️</div>
+      <div class="dist-info">
+        <div class="d-label" id="distLabel">दूरी</div>
+        <div class="d-value" id="distValue">0.00</div>
+        <div class="d-unit" id="distUnit">km</div>
+      </div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="s-icon">⚡</div><div class="s-label" id="paceLabel">पेस</div><div class="s-value" id="paceValue">--:--</div><div class="s-unit">min/km</div></div>
+      <div class="stat-card"><div class="s-icon">🔥</div><div class="s-label" id="speedLabel">रफ्तार</div><div class="s-value" id="speedValue">0.0</div><div class="s-unit">km/h</div></div>
+      <div class="stat-card"><div class="s-icon">📍</div><div class="s-label" id="metersLabel">मीटर</div><div class="s-value" id="metersValue">0</div></div>
+      <div class="stat-card"><div class="s-icon">🗺️</div><div class="s-label" id="pointsLabel">पॉइंट्स</div><div class="s-value" id="pointsValue">0</div></div>
+    </div>
+    <canvas id="routeCanvas" width="400" height="110"></canvas>
+    <div class="controls">
+      <button class="run-btn run-start" id="runBtn">▶ दौड़ शुरू करें</button>
+      <button class="reset-btn" id="resetBtn">↺</button>
+    </div>
+    <div id="summaryCard" class="summary">
+      <h3 id="sumTitle">🏁 दौड़ पूरी!</h3>
+      <div id="sumDetails"></div>
+    </div>
+    <div id="historySection" class="history-section"></div>
+    <button class="back-home-btn" id="backHomeBtn">← होम पेज</button>
+    <div class="footer-hashtags">🇮🇳 #अग्निवीर #Agniveer #IndianNavy #IndianArmy 🇮🇳</div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
