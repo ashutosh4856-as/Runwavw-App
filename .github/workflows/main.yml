@@ -1,0 +1,25 @@
+name: Build APK
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Create package.json
+        run: |
+          echo '{"name":"runwave","version":"1.0.0","dependencies":{"@capacitor/android":"^5.0.0","@capacitor/core":"^5.0.0"}}' > package.json
+          npm install
+      - name: Build
+        run: |
+          npx cap add android
+          npx cap sync
+          cd android && chmod +x gradlew && ./gradlew assembleDebug
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: RunWave-App
+          path: android/app/build/outputs/apk/debug/app-debug.apk
