@@ -1,12 +1,22 @@
-name: Build APK
-on: [push, workflow_dispatch]
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -14,30 +24,48 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Install Capacitor & Platforms
+      - name: Create package.json
         run: |
-          npm install -g @capacitor/cli
-          echo '{"name":"runwave","version":"1.0.0","private":true,"dependencies":{"@capacitor/android":"^5.0.0","@capacitor/core":"^5.0.0"}}' > package.json
-          npm install
-          npx cap add android
+          cat > package.json << 'EOF'
+          {
+            "name": "runwave",
+            "version": "1.0.0",
+            "private": true,
+            "dependencies": {
+              "@capacitor/android": "^5.7.0",
+              "@capacitor/core": "^5.7.0"
+            }
+          }
+          EOF
 
-      - name: Copy Web Assets
+      - name: Install Capacitor
+        run: |
+          npm install
+          npm install -g @capacitor/cli
+
+      - name: Initialize Capacitor
+        run: npx cap init RunWave com.runwave.tracker --web-dir=.
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Copy web files to Android
         run: npx cap copy
 
-      - name: Build Android App
+      - name: Sync Android project
+        run: npx cap sync android
+
+      - name: Build APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload APK Artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: RunWave-App
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          
