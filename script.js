@@ -8,93 +8,50 @@ let positions = [];
 let watchId = null;
 let timerInterval = null;
 let history = JSON.parse(localStorage.getItem('runHistory') || '[]');
-let currentLang = localStorage.getItem('lang') || 'hi';
-let currentTheme = localStorage.getItem('theme') || 'dark';
+let currentTheme = localStorage.getItem('theme') || 'light';
 
-// ========== WAKE LOCK (Screen बंद होने पर भी काम करेगा) ==========
-let wakeLock = null;
-
-async function requestWakeLock() {
-  if ('wakeLock' in navigator) {
-    try {
-      wakeLock = await navigator.wakeLock.request('screen');
-      console.log('Wake Lock acquired');
-      wakeLock.addEventListener('release', () => {
-        console.log('Wake Lock released, reacquiring...');
-        setTimeout(() => requestWakeLock(), 1000);
-      });
-    } catch (err) {
-      console.log('Wake Lock error:', err);
-    }
-  }
-}
-
-function releaseWakeLock() {
-  if (wakeLock) {
-    wakeLock.release();
-    wakeLock = null;
-  }
-}
-
-// ========== TRANSLATIONS ==========
-const texts = {
-  hi: {
-    welcomeTitle: "स्वागत है!", welcomeSub: "अग्निवीर फिटनेस के लिए दौड़ ट्रैक करें",
-    timerLabel: "समय", distLabel: "दूरी", paceLabel: "पेस", speedLabel: "रफ्तार",
-    metersLabel: "मीटर", pointsLabel: "पॉइंट्स", gpsReady: "GPS तैयार",
-    gpsLocked: "GPS लॉक", gpsSearching: "GPS खोज रहा...",
-    startBtn: "▶ दौड़ शुरू करें", stopBtn: "⏸ रोकें", resumeBtn: "▶ जारी रखें",
-    sumTitle: "🏁 दौड़ पूरी!"
-  },
-  en: {
-    welcomeTitle: "Welcome!", welcomeSub: "Track your run for Agniveer fitness",
-    timerLabel: "Duration", distLabel: "Distance", paceLabel: "Pace", speedLabel: "Speed",
-    metersLabel: "Meters", pointsLabel: "Points", gpsReady: "GPS ready",
-    gpsLocked: "GPS locked", gpsSearching: "Searching GPS...",
-    startBtn: "▶ START RUN", stopBtn: "⏸ PAUSE", resumeBtn: "▶ RESUME",
-    sumTitle: "🏁 Run Complete!"
-  }
-};
+// ========== DOM ELEMENTS ==========
+const mainDistance = document.getElementById('mainDistance');
+const timeValue = document.getElementById('timeValue');
+const paceValue = document.getElementById('paceValue');
+const speedValue = document.getElementById('speedValue');
+const caloriesValue = document.getElementById('caloriesValue');
+const startBtn = document.getElementById('startBtn');
+const gpsDot = document.getElementById('gpsDot');
+const gpsText = document.getElementById('gpsText');
+const errorMsgDiv = document.getElementById('errorMsgDiv');
 
 // ========== THEME ==========
-function applyTheme() {
-  if (currentTheme === 'light') {
-    document.body.classList.add('light');
+function setTheme(theme) {
+  currentTheme = theme;
+  if (theme === 'dark') {
+    document.body.classList.add('dark');
   } else {
-    document.body.classList.remove('light');
+    document.body.classList.remove('dark');
   }
+  localStorage.setItem('theme', theme);
+  document.getElementById('lightBtn').classList.toggle('active', theme === 'light');
+  document.getElementById('darkBtn').classList.toggle('active', theme === 'dark');
 }
 
-function toggleTheme() {
-  currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  localStorage.setItem('theme', currentTheme);
-  applyTheme();
+function toggleThemeSimple() {
+  setTheme(currentTheme === 'dark' ? 'light' : 'dark');
 }
 
-// ========== LANGUAGE ==========
-function applyLanguage() {
-  const t = texts[currentLang];
-  document.getElementById('welcomeTitle').innerText = t.welcomeTitle;
-  document.getElementById('welcomeSub').innerText = t.welcomeSub;
-  if (document.getElementById('timerLabel')) {
-    document.getElementById('timerLabel').innerText = t.timerLabel;
-    document.getElementById('distLabel').innerText = t.distLabel;
-    document.getElementById('paceLabel').innerText = t.paceLabel;
-    document.getElementById('speedLabel').innerText = t.speedLabel;
-    document.getElementById('metersLabel').innerText = t.metersLabel;
-    document.getElementById('pointsLabel').innerText = t.pointsLabel;
-    document.getElementById('sumTitle').innerText = t.sumTitle;
-    document.getElementById('gpsText').innerText = t.gpsReady;
-    if (!running) {
-      document.getElementById('runBtn').innerText = t.startBtn;
-    }
-  }
-}
+// Load saved theme
+setTheme(localStorage.getItem('theme') || 'light');
 
-function toggleLang() {
-  currentLang = currentLang === 'hi' ? 'en' : 'hi';
-  localStorage.setItem('lang', currentLang);
-  applyLanguage();
+// ========== PANEL NAVIGATION ==========
+function showPanel(panel) {
+  document.getElementById('homePanel').classList.toggle('hide', panel !== 'home');
+  document.getElementById('historyPanel').classList.toggle('show', panel === 'history');
+  document.getElementById('settingsPanel').classList.toggle('show', panel === 'settings');
+  
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.panel === panel);
+  });
+  
+  if (panel === 'history') renderHistory();
 }
 
 // ========== HELPERS ==========
@@ -126,95 +83,62 @@ function formatPace(distM, ms) {
   return `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
 }
 
+function calculateCalories(distKm, weightKg = 70) {
+  // Average calories burned per km = ~60 calories for 70kg person
+  return Math.round(distKm * 60);
+}
+
 // ========== UI UPDATE ==========
 function updateUI() {
   const now = Date.now();
   const currentElapsed = running ? (now - startTime + elapsed) : elapsed;
   const distKm = distance / 1000;
+  const calories = calculateCalories(distKm);
   
-  document.getElementById('timerValue').innerText = formatTime(currentElapsed);
-  document.getElementById('distValue').innerText = distKm >= 1 ? distKm.toFixed(2) : distance.toFixed(0);
-  document.getElementById('distUnit').innerText = distKm >= 1 ? 'km' : (currentLang === 'hi' ? 'मीटर' : 'm');
-  document.getElementById('metersValue').innerText = Math.round(distance);
-  document.getElementById('paceValue').innerText = formatPace(distance, currentElapsed);
-  document.getElementById('speedValue').innerText = lastSpeed.toFixed(1);
-  document.getElementById('pointsValue').innerText = positions.length;
+  mainDistance.innerText = distKm.toFixed(2);
+  timeValue.innerText = formatTime(currentElapsed);
+  paceValue.innerText = formatPace(distance, currentElapsed);
+  speedValue.innerText = lastSpeed.toFixed(1);
+  caloriesValue.innerText = calories;
 }
 
-// ========== DRAW ROUTE ==========
-function drawRoute() {
-  const canvas = document.getElementById('routeCanvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
-  canvas.width = w;
-  canvas.height = h;
-  
-  ctx.clearRect(0, 0, w, h);
-  
-  if (positions.length < 2) {
-    ctx.fillStyle = currentTheme === 'light' ? '#e0e0e0' : '#222';
-    ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = '#888';
-    ctx.font = '12px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(currentLang === 'hi' ? 'रूट यहाँ दिखेगा...' : 'Route will appear...', w/2, h/2);
-    return;
+// ========== WAKE LOCK (Screen off par bhi kaam karega) ==========
+let wakeLock = null;
+
+async function requestWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      console.log('Wake Lock acquired');
+      wakeLock.addEventListener('release', () => {
+        console.log('Wake Lock released');
+        setTimeout(() => requestWakeLock(), 1000);
+      });
+    } catch (err) {
+      console.log('Wake Lock error:', err);
+    }
   }
-  
-  const lats = positions.map(p => p.lat);
-  const lons = positions.map(p => p.lon);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
-  const pad = 15;
-  
-  const scaleX = (w - pad * 2) / (maxLon - minLon || 0.0001);
-  const scaleY = (h - pad * 2) / (maxLat - minLat || 0.0001);
-  const scale = Math.min(scaleX, scaleY);
-  
-  const toX = lon => pad + (lon - minLon) * scale + (w - pad*2 - (maxLon-minLon)*scale)/2;
-  const toY = lat => h - pad - (lat - minLat) * scale - (h - pad*2 - (maxLat-minLat)*scale)/2;
-  
-  ctx.fillStyle = currentTheme === 'light' ? '#e0e0e0' : '#222';
-  ctx.fillRect(0, 0, w, h);
-  
-  for (let i = 1; i < positions.length; i++) {
-    ctx.beginPath();
-    ctx.moveTo(toX(positions[i-1].lon), toY(positions[i-1].lat));
-    ctx.lineTo(toX(positions[i].lon), toY(positions[i].lat));
-    ctx.strokeStyle = '#10b981';
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
+}
+
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release();
+    wakeLock = null;
   }
-  
-  ctx.beginPath();
-  ctx.arc(toX(positions[0].lon), toY(positions[0].lat), 5, 0, Math.PI*2);
-  ctx.fillStyle = '#3b82f6';
-  ctx.fill();
-  
-  const last = positions[positions.length-1];
-  ctx.beginPath();
-  ctx.arc(toX(last.lon), toY(last.lat), 6, 0, Math.PI*2);
-  ctx.fillStyle = '#10b981';
-  ctx.fill();
 }
 
 // ========== GPS ==========
 function onPosition(pos) {
   const { latitude, longitude, accuracy, speed } = pos.coords;
-  const gpsDot = document.getElementById('gpsDot');
-  const gpsText = document.getElementById('gpsText');
-  const t = texts[currentLang];
   
   if (accuracy < 30) {
     gpsDot.className = 'gps-dot locked';
-    gpsText.innerText = `${t.gpsLocked} (±${Math.round(accuracy)}m)`;
+    gpsText.innerText = `GPS locked (±${Math.round(accuracy)}m)`;
+    document.getElementById('gpsAccuracy').innerText = `±${Math.round(accuracy)}m`;
+    errorMsgDiv.classList.remove('show');
   } else {
     gpsDot.className = 'gps-dot searching';
-    gpsText.innerText = t.gpsSearching;
+    gpsText.innerText = 'Searching GPS...';
     return;
   }
   
@@ -234,27 +158,37 @@ function onPosition(pos) {
   }
   
   positions.push({ lat: latitude, lon: longitude, time: Date.now() });
-  drawRoute();
   updateUI();
 }
 
-function onGpsError() {
-  document.getElementById('gpsDot').className = 'gps-dot';
-  document.getElementById('gpsText').innerText = 'GPS error';
+function onGpsError(err) {
+  gpsDot.className = 'gps-dot';
+  gpsText.innerText = 'GPS error - check permissions';
+  if (err.code === 1) {
+    errorMsgDiv.classList.add('show');
+  }
 }
 
 // ========== RUN CONTROL ==========
 function startRun() {
   if (!running) {
+    // Request location permission first
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'geolocation' }).then(result => {
+        if (result.state === 'denied') {
+          errorMsgDiv.classList.add('show');
+          return;
+        }
+      });
+    }
+    
     running = true;
     startTime = Date.now();
-    requestWakeLock();  // ← Screen ऑन रखने के लिए
-    document.getElementById('summaryCard').classList.remove('show');
-    const runBtn = document.getElementById('runBtn');
-    runBtn.innerText = texts[currentLang].stopBtn;
-    runBtn.className = 'run-btn run-stop';
-    document.getElementById('gpsDot').className = 'gps-dot searching';
-    document.getElementById('gpsText').innerText = texts[currentLang].gpsSearching;
+    requestWakeLock();
+    startBtn.innerText = '⏸ PAUSE';
+    startBtn.classList.add('pause');
+    gpsDot.className = 'gps-dot searching';
+    gpsText.innerText = 'Acquiring GPS...';
     
     watchId = navigator.geolocation.watchPosition(onPosition, onGpsError, {
       enableHighAccuracy: true,
@@ -269,10 +203,11 @@ function startRun() {
     clearInterval(timerInterval);
     if (watchId) navigator.geolocation.clearWatch(watchId);
     
-    const runBtn = document.getElementById('runBtn');
-    runBtn.innerText = texts[currentLang].resumeBtn;
-    runBtn.className = 'run-btn run-start';
+    startBtn.innerText = '▶ START';
+    startBtn.classList.remove('pause');
+    gpsDot.className = 'gps-dot locked';
     
+    // Save to history
     if (distance > 10) {
       history.unshift({
         dist: distance,
@@ -283,27 +218,17 @@ function startRun() {
       localStorage.setItem('runHistory', JSON.stringify(history));
       renderHistory();
     }
-    
-    const distKm = distance / 1000;
-    const sumDetails = document.getElementById('sumDetails');
-    sumDetails.innerHTML = `
-      <div>कुल दूरी: ${distKm >= 1 ? distKm.toFixed(2) + ' km' : Math.round(distance) + ' m'}</div>
-      <div>कुल समय: ${formatTime(elapsed)}</div>
-      <div>औसत पेस: ${formatPace(distance, elapsed)} min/km</div>
-      <div>औसत रफ्तार: ${elapsed > 0 ? (distKm / (elapsed / 3600000)).toFixed(1) : '0.0'} km/h</div>
-    `;
-    document.getElementById('summaryCard').classList.add('show');
   }
 }
 
 function resetRun() {
   if (running) {
+    running = false;
     clearInterval(timerInterval);
     if (watchId) navigator.geolocation.clearWatch(watchId);
     releaseWakeLock();
   }
   
-  running = false;
   startTime = null;
   elapsed = 0;
   distance = 0;
@@ -313,66 +238,44 @@ function resetRun() {
   timerInterval = null;
   
   updateUI();
-  drawRoute();
-  document.getElementById('runBtn').innerText = texts[currentLang].startBtn;
-  document.getElementById('runBtn').className = 'run-btn run-start';
-  document.getElementById('summaryCard').classList.remove('show');
-  document.getElementById('gpsDot').className = 'gps-dot';
-  document.getElementById('gpsText').innerText = texts[currentLang].gpsReady;
+  startBtn.innerText = '▶ START';
+  startBtn.classList.remove('pause');
+  gpsDot.className = 'gps-dot';
+  gpsText.innerText = 'GPS ready — tap Start';
 }
 
 function renderHistory() {
-  const historyDiv = document.getElementById('historySection');
+  const historyList = document.getElementById('historyList');
   if (history.length === 0) {
-    historyDiv.innerHTML = '';
+    historyList.innerHTML = '<p style="color:var(--text-secondary)">No runs yet. Start running!</p>';
     return;
   }
   
-  historyDiv.innerHTML = '<h4 style="margin:15px 0 10px">📜 पिछली दौड़ें</h4>';
-  history.slice(0, 5).forEach(r => {
+  historyList.innerHTML = history.slice(0, 10).map(r => {
     const distKm = r.dist / 1000;
-    historyDiv.innerHTML += `
+    return `
       <div class="history-item">
-        <div><strong>${distKm >= 1 ? distKm.toFixed(2) + ' km' : Math.round(r.dist) + ' m'}</strong><br><small>${formatTime(r.time)}</small></div>
+        <div><strong>${distKm.toFixed(2)} km</strong><br><small>${formatTime(r.time)}</small></div>
         <div><small>${r.date}</small></div>
       </div>
     `;
-  });
-}
-
-// ========== SCREEN NAVIGATION ==========
-function startTracking() {
-  document.getElementById('welcomeScreen').style.display = 'none';
-  document.getElementById('trackerScreen').classList.add('show');
-  renderHistory();
-  drawRoute();
-  applyLanguage();
-}
-
-function goHome() {
-  if (running) {
-    if (confirm(currentLang === 'hi' ? 'दौड़ जारी है। क्या आप होम पेज पर जाना चाहते हैं?' : 'Run in progress. Go to home?')) {
-      running = false;
-      clearInterval(timerInterval);
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-      releaseWakeLock();
-    } else {
-      return;
-    }
-  }
-  document.getElementById('welcomeScreen').style.display = 'flex';
-  document.getElementById('trackerScreen').classList.remove('show');
+  }).join('');
 }
 
 // ========== INITIALIZE ==========
-applyTheme();
-applyLanguage();
+startBtn.onclick = startRun;
+updateUI();
 renderHistory();
 
-// Event Listeners
-document.getElementById('startTrackingBtn').onclick = startTracking;
-document.getElementById('runBtn').onclick = startRun;
-document.getElementById('resetBtn').onclick = resetRun;
-document.getElementById('backHomeBtn').onclick = goHome;
-window.toggleTheme = toggleTheme;
-window.toggleLang = toggleLang;
+// Check if geolocation is available
+if (!navigator.geolocation) {
+  gpsText.innerText = 'Geolocation not supported';
+}
+
+// Request permission on page load
+window.addEventListener('load', () => {
+  navigator.geolocation.getCurrentPosition(
+    () => {},
+    () => {}
+  );
+});
