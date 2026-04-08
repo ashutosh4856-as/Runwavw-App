@@ -1,0 +1,51 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install Capacitor
+        run: npm install -g @capacitor/cli
+
+      - name: Create package.json
+        run: |
+          echo '{"name":"runwave","version":"1.0.0","private":true,"dependencies":{"@capacitor/android":"^5.0.0","@capacitor/core":"^5.0.0"}}' > package.json
+          npm install
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Copy web files
+        run: npx cap copy
+
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RunWave-App
+          path: android/app/build/outputs/apk/debug/app-debug.apk
